@@ -1,14 +1,16 @@
 import pygame
 from os import path
 from src.agreements import *
+from src.base_screen import BaseScreen
 
 
 # Class for main menu screen
-class MainMenu:
+class MainMenu(BaseScreen):
     def __init__(self, window=None):
         self.window = window
         self._init_image()
         self._init_text()
+        self._init_logic()
 
     def start_music(self):
         self.window.music.stop()
@@ -27,27 +29,62 @@ class MainMenu:
                                                    WINDOW_SIZE)
 
     def _init_text(self):
-        self.intro_text = ['Through the Time and Space',
-                           'Press any key to continue']
+        self.TITLE_MIN_Y = int(WINDOW_SIZE[1] / 36)
+        self.TITLE_MAX_Y = int(WINDOW_SIZE[1] / 15)
+        self.TEXT_X = WINDOW_SIZE[0] / 48
+        self.START_Y = int(WINDOW_SIZE[0] / 6)
+        self.Y_PADDING = int(WINDOW_SIZE[0] / 12)
+        self.TITLE_BASIC_SPEED = 0.01
+        self.TITLE_SPEED_MULTIPLIER = 1.01
+        self.TITLE_FONT_SIZE = int(WINDOW_SIZE[0] / 12)
+        self.SUBTITLE_FONT_SIZE = int(WINDOW_SIZE[0] / 24)
+        self.intro_text = ['406: The Game',
+                           'START',
+                           'SETTINGS',
+                           'EXIT']
         self.title_font = pygame.font.Font(
-            pygame.font.match_font('lucidasans'), 72)
-        self.title_y = 30
-        self.title_speed = 0.01
+            pygame.font.match_font('lucidasans'), self.TITLE_FONT_SIZE)
+        self.title_y = self.TITLE_MIN_Y
+        self.title_speed = self.TITLE_BASIC_SPEED
         self.subtitle_font = pygame.font.Font(
-            pygame.font.match_font('lucidaconsole'), 24)
+            pygame.font.match_font('lucidaconsole'), self.SUBTITLE_FONT_SIZE)
 
-    def _process_events(self):
+    def _init_logic(self):
+        self.selected = 0
+        self.press_tick = 0
+        self.PRESS_DELAY = 75
+
+    def process_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.window.running = False
-            elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN):
-                self.window.cur_screen = 'rules_screen'
+
+        keys = pygame.key.get_pressed()
+        tick = pygame.time.get_ticks()
+
+        if tick - self.press_tick >= self.PRESS_DELAY:
+            if keys[pygame.K_UP]:
+                self.selected -= 1
+                self.selected %= 3
+                print(f'UP {self.selected}')
+            if keys[pygame.K_DOWN]:
+                self.selected += 1
+                self.selected %= 3
+                print(f'DOWN {self.selected}')
+            if keys[pygame.K_RETURN]:
+                if self.selected == 0:
+                    self.window.cur_screen = self.window.field_screen
+                elif self.selected == 1:
+                    self.window.cur_screen = self.window.settings_screen
+                else:
+                    self.window.running = False
+            self.press_tick = pygame.time.get_ticks()
 
     # Draws screen
-    def _draw_screen(self):
+    def draw_screen(self):
         self._draw_image()
         self._draw_text()
-        self.draw_fading()
+        self._draw_fading()
         self._move_title()
 
     # Draws background
@@ -57,30 +94,49 @@ class MainMenu:
     # Draws text and moves title
     def _draw_text(self):
         string_title = self.title_font.render(
-            self.intro_text[0], True, pygame.Color('white'))
-        string_subtitle = self.subtitle_font.render(
-            self.intro_text[1], True, pygame.Color('white'))
+            self.intro_text[0], True, pygame.Color('white')
+        )
+        string_start = self.subtitle_font.render(
+            self.intro_text[1], True, pygame.Color(
+                'yellow' if self.selected == 0 else 'white')
+        )
+        string_settings = self.subtitle_font.render(
+            self.intro_text[2], True, pygame.Color(
+                'yellow' if self.selected == 1 else 'white')
+        )
+        string_exit = self.subtitle_font.render(
+            self.intro_text[3], True, pygame.Color(
+                'yellow' if self.selected == 2 else 'white')
+        )
         rect_title = string_title.get_rect()
-        rect_subtitle = string_subtitle.get_rect()
-        rect_title = rect_title.move(40, self.title_y)
-        rect_subtitle = rect_subtitle.move(360, 500)
+        rect_start = string_start.get_rect()
+        rect_settings = string_settings.get_rect()
+        rect_exit = string_exit.get_rect()
+        rect_title = rect_title.move(self.TEXT_X, self.title_y)
+        rect_start = rect_start.move(self.TEXT_X, self.START_Y)
+        rect_settings = rect_settings.move(self.TEXT_X,
+                                           self.START_Y + self.Y_PADDING)
+        rect_exit = rect_exit.move(self.TEXT_X,
+                                   self.START_Y + self.Y_PADDING * 2)
         self.window.screen.blit(string_title, rect_title)
-        self.window.screen.blit(string_subtitle, rect_subtitle)
+        self.window.screen.blit(string_start, rect_start)
+        self.window.screen.blit(string_settings, rect_settings)
+        self.window.screen.blit(string_exit, rect_exit)
 
     # Moves title
     def _move_title(self):
-        if 30 <= self.title_y <= 50:
-            self.title_speed *= 1.01
+        if self.TITLE_MIN_Y <= self.title_y <= self.TITLE_MAX_Y:
+            self.title_speed *= self.TITLE_SPEED_MULTIPLIER
             self.title_y += self.title_speed
-        elif self.title_y < 30:
-            self.title_speed = 0.01
-            self.title_y = 30
+        elif self.title_y < self.TITLE_MIN_Y:
+            self.title_speed = self.TITLE_BASIC_SPEED
+            self.title_y = self.TITLE_MIN_Y
         else:
-            self.title_speed = -0.01
-            self.title_y = 50
+            self.title_speed = -self.TITLE_BASIC_SPEED
+            self.title_y = self.TITLE_MAX_Y
 
     # Draws fading
-    def draw_fading(self):
+    def _draw_fading(self):
         if self.fading_image.get_alpha() != 0:
-            self.window.screen.blit(self.fading_image, (0, 0))
-            self.fading_image.set_alpha(self.fading_image.get_alpha() - 0.125)
+            self.fading_image.set_alpha(self.fading_image.get_alpha() - 1)
+        self.window.screen.blit(self.fading_image, (0, 0))
